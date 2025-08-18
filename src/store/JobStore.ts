@@ -10,12 +10,15 @@ export const useJobStore = defineStore('jobStore', () => {
   }
 
   function removeJob(id: string) {
-    jobs.value = jobs.value.filter((job) => job.id !== id);
+    jobs.value = jobs.value.filter(j => j.id !== id);
   }
 
-  function updateJob(updated: JobApplication) {
-    const index = jobs.value.findIndex((j) => j.id === updated.id);
-    if (index !== -1) jobs.value[index] = updated;
+  // ⬇️ Patch-style update to avoid replacing the whole object incorrectly
+  function updateJob(id: string, patch: Partial<JobApplication>) {
+    const idx = jobs.value.findIndex(j => j.id === id);
+    if (idx !== -1) {
+      jobs.value[idx] = { ...jobs.value[idx], ...patch };
+    }
   }
 
   return { jobs, addJob, removeJob, updateJob };

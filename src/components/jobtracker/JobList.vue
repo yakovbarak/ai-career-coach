@@ -1,30 +1,57 @@
 <template>
   <div class="space-y-4">
-    <!-- ⚠️ Global Duplicate Warning -->
-    <div v-if="hasDuplicates" class="bg-yellow-300 text-black p-3 rounded">
-      ⚠️ Duplicate job URLs detected! Please review highlighted rows.
+    <!-- Legend + Toggle -->
+    <div class="flex items-center justify-between">
+      <!-- Legend -->
+      <div class="flex gap-4 text-sm">
+        <span class="flex items-center gap-1">
+          <span class="w-4 h-4 bg-red-300 border rounded"></span> Rejected
+        </span>
+        <span class="flex items-center gap-1">
+          <span class="w-4 h-4 bg-yellow-200 border rounded"></span> Duplicate URL
+        </span>
+      </div>
+
+      <!-- Toggle -->
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" v-model="showDuplicatesOnly" />
+        Show only duplicates
+      </label>
     </div>
 
-    <JobItem v-for="job in jobs" :key="job.id" :job="job" />
+    <!-- Jobs -->
+    <div v-if="filteredJobs.length > 0" class="space-y-2">
+      <JobItem v-for="job in filteredJobs" :key="job.id" :job="job" />
+    </div>
+    <p v-else class="text-gray-500">No jobs to display</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useJobStore } from '../../store/JobStore';
 import JobItem from './JobItem.vue';
 
 const jobStore = useJobStore();
-const jobs = computed(() => jobStore.jobs);
+const showDuplicatesOnly = ref(false);
 
-// check if there are any duplicate URLs in the job list
-const hasDuplicates = computed(() => {
-  const urlCounts: Record<string, number> = {};
-  for (const job of jobs.value) {
-    if (job.url) {
-      urlCounts[job.url] = (urlCounts[job.url] || 0) + 1;
-    }
+const normalizeUrl = (u?: string) => (u ?? '').trim();
+
+// Helper to check duplicates
+function isDuplicate(url?: string): boolean {
+  const normalized = normalizeUrl(url);
+  if (!normalized) return false;
+  let count = 0;
+  for (const j of jobStore.jobs) {
+    if (normalizeUrl(j.url) === normalized) count++;
   }
-  return Object.values(urlCounts).some(count => count > 1);
+  return count > 1;
+}
+
+const filteredJobs = computed(() => {
+  if (!showDuplicatesOnly.value) {
+    return jobStore.jobs;
+  }
+  return jobStore.jobs.filter(j => isDuplicate(j.url));
 });
 </script>

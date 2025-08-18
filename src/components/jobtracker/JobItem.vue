@@ -1,104 +1,131 @@
 <template>
-  <div
-    class="p-4 border rounded flex justify-between items-center"
-    :class="duplicateClass"
-  >
-    <!-- Edit Mode -->
-    <div v-if="isEditing" class="flex-1 space-y-2">
-      <input v-model="editCompany" class="input" />
-      <input v-model="editPosition" class="input" />
-      <input v-model="editUrl" placeholder="Job URL" class="input" />
-      <select v-model="editStatus" class="input">
-        <option>Applied</option>
-        <option>Interview</option>
-        <option>Offer</option>
-        <option>Rejected</option>
-      </select>
-      <textarea v-model="editNotes" class="input"></textarea>
-      <div class="flex gap-2 mt-2">
-        <button @click="saveEdit" class="bg-green-600 text-white px-3 py-1 rounded">
-          Save
-        </button>
-        <button @click="cancelEdit" class="bg-gray-400 text-white px-3 py-1 rounded">
-          Cancel
+  <div :class="['p-4 border rounded transition-colors', rowClass]">
+    <div class="flex justify-between items-start gap-4">
+      <!-- Content -->
+      <div class="flex-1">
+        <!-- View Mode -->
+        <div v-if="!editing">
+          <h2 class="font-semibold">{{ currentJob.position }} @ {{ currentJob.company }}</h2>
+          <p class="text-sm text-gray-600">
+            Status: {{ currentJob.status }} | Applied: {{ currentJob.dateApplied }}
+          </p>
+          <p v-if="currentJob.url" class="text-sm mt-1">
+            <a :href="currentJob.url" target="_blank" class="text-blue-600 underline">
+              {{ currentJob.url }}
+            </a>
+          </p>
+          <p v-if="currentJob.notes" class="text-sm mt-1">Notes: {{ currentJob.notes }}</p>
+        </div>
+
+        <!-- Edit Mode -->
+        <div v-else class="space-y-2">
+          <input v-model="editCompany" placeholder="Company" class="input" />
+          <input v-model="editPosition" placeholder="Position" class="input" />
+          <select v-model="editStatus" class="input">
+            <option>Applied</option>
+            <option>Interview</option>
+            <option>Offer</option>
+            <option>Rejected</option>
+          </select>
+          <input v-model="editUrl" placeholder="Job URL" class="input" />
+          <textarea v-model="editNotes" placeholder="Notes" class="input"></textarea>
+
+          <div class="flex gap-2 pt-1">
+            <button @click="save" class="bg-green-600 text-white px-3 py-1 rounded">
+              Save
+            </button>
+            <button @click="cancelEdit" class="bg-gray-400 text-white px-3 py-1 rounded">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions (View Mode only) -->
+      <div v-if="!editing" class="flex flex-col gap-2">
+        <button @click="startEdit" class="text-blue-600 hover:underline">Edit</button>
+        <button @click="jobStore.removeJob(currentJob.id)" class="text-red-600 hover:underline">
+          Remove
         </button>
       </div>
-    </div>
-
-    <!-- View Mode -->
-    <div v-else class="flex-1">
-      <h2 class="font-semibold">{{ job.position }} @ {{ job.company }}</h2>
-      <p class="text-sm text-gray-500">
-        Status: {{ job.status }} | Applied: {{ job.dateApplied }}
-      </p>
-      <p v-if="job.url" class="text-sm text-blue-600">
-        <a :href="job.url" target="_blank">{{ job.url }}</a>
-      </p>
-      <p v-if="job.notes" class="text-sm mt-1">Notes: {{ job.notes }}</p>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="ml-4 flex flex-col gap-2">
-      <button v-if="!isEditing" @click="startEdit" class="text-blue-500 hover:underline">
-        Edit
-      </button>
-      <button @click="jobStore.removeJob(job.id)" class="text-red-500 hover:underline">
-        Remove
-      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useJobStore } from '../../store/JobStore';
 import type { JobApplication } from '../../types/job';
+import { useJobStore } from '../../store/JobStore';
 
 const props = defineProps<{ job: JobApplication }>();
 const jobStore = useJobStore();
 
-const isEditing = ref(false);
-const editCompany = ref(props.job.company);
-const editPosition = ref(props.job.position);
-const editStatus = ref(props.job.status);
-const editNotes = ref(props.job.notes ?? '');
-const editUrl = ref(props.job.url ?? '');
+/**
+ * Source of truth is the store. We derive the "currentJob" from the store by ID.
+ * This guarantees the row's background only reflects SAVED state,
+ * not transient edits in the form.
+ */
+const currentJob = computed(() =>
+  jobStore.jobs.find(j => j.id === props.job.id) ?? props.job
+);
 
-// check for duplicate URLs
-const duplicateClass = computed(() => {
-  if (!props.job.url) return '';
-  const duplicates = jobStore.jobs.filter(
-    j => j.url && j.url === props.job.url
-  );
-  return duplicates.length > 1 ? 'bg-yellow-200' : '';
-});
+const editing = ref(false);
+const editCompany = ref(currentJob.value.company);
+const editPosition = ref(currentJob.value.position);
+const editStatus = ref<JobApplication['status']>(currentJob.value.status);
+const editNotes = ref(currentJob.value.notes ?? '');
+const editUrl = ref(currentJob.value.url ?? '');
 
 function startEdit() {
-  isEditing.value = true;
+  editing.value = true;
+  // load fresh values from the store (in case it changed)
+  editCompany.value = currentJob.value.company;
+  editPosition.value = currentJob.value.position;
+  editStatus.value = currentJob.value.status;
+  editNotes.value = currentJob.value.notes ?? '';
+  editUrl.value = currentJob.value.url ?? '';
 }
 
 function cancelEdit() {
-  isEditing.value = false;
-  editCompany.value = props.job.company;
-  editPosition.value = props.job.position;
-  editStatus.value = props.job.status;
-  editNotes.value = props.job.notes ?? '';
-  editUrl.value = props.job.url ?? '';
+  editing.value = false;
+  // reset fields to saved state
+  editCompany.value = currentJob.value.company;
+  editPosition.value = currentJob.value.position;
+  editStatus.value = currentJob.value.status;
+  editNotes.value = currentJob.value.notes ?? '';
+  editUrl.value = currentJob.value.url ?? '';
 }
 
-function saveEdit() {
-  jobStore.updateJob({
-    ...props.job,
+function save() {
+  jobStore.updateJob(currentJob.value.id, {
     company: editCompany.value,
     position: editPosition.value,
     status: editStatus.value,
-    notes: editNotes.value,
+    notes: editNotes.value || undefined,
     url: editUrl.value.trim() || undefined,
   });
-  isEditing.value = false;
+  editing.value = false;
 }
-</script>
 
+// --- Duplicate detection (uses SAVED data only) ---
+const normalizeUrl = (u?: string) => (u ?? '').trim();
+const isDuplicate = computed(() => {
+  const url = normalizeUrl(currentJob.value.url);
+  if (!url) return false;
+  let count = 0;
+  for (const j of jobStore.jobs) {
+    if (normalizeUrl(j.url) === url) count++;
+  }
+  return count > 1;
+});
+
+// --- Background priority: Rejected (red) > Duplicate (yellow) > Normal (white) ---
+const rowClass = computed(() => {
+  if (currentJob.value.status === 'Rejected') return 'bg-red-300';
+  if (isDuplicate.value) return 'bg-yellow-200';
+  return 'bg-white';
+});
+</script>
 
 <style scoped>
 .input {
