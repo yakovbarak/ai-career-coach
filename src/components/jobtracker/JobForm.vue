@@ -38,6 +38,7 @@ function handleSubmit() {
     dateApplied: new Date().toISOString().split('T')[0],
     notes: notes.value,
     url: url.value.trim() || undefined,
+    createdAt: Date.now(),
   });
 
   company.value = '';
