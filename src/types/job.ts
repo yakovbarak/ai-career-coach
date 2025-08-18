@@ -5,4 +5,5 @@ export interface JobApplication {
   status: 'Applied' | 'Interview' | 'Offer' | 'Rejected';
   dateApplied: string; // ISO date string
   notes?: string;      // optional extra info
+  url?: string;
 }

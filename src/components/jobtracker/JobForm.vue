@@ -2,6 +2,7 @@
   <form @submit.prevent="handleSubmit" class="mb-6 space-y-3">
     <input v-model="company" placeholder="Company" class="input" required />
     <input v-model="position" placeholder="Position" class="input" required />
+    <input v-model="url" placeholder="Job URL (optional)" class="input" />
     <select v-model="status" class="input">
       <option>Applied</option>
       <option>Interview</option>
@@ -26,6 +27,7 @@ const company = ref('');
 const position = ref('');
 const status = ref<'Applied' | 'Interview' | 'Offer' | 'Rejected'>('Applied');
 const notes = ref('');
+const url = ref('');
 
 function handleSubmit() {
   jobStore.addJob({
@@ -35,12 +37,14 @@ function handleSubmit() {
     status: status.value,
     dateApplied: new Date().toISOString().split('T')[0],
     notes: notes.value,
+    url: url.value.trim() || undefined,
   });
 
   company.value = '';
   position.value = '';
   status.value = 'Applied';
   notes.value = '';
+  url.value = '';
 }
 </script>
 
