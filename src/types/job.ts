@@ -7,4 +7,11 @@ export interface JobApplication {
   notes?: string;      // optional extra info
   url?: string;
   createdAt?: number;
+
+  jobDescription?: string;
+  recruiter?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
 }

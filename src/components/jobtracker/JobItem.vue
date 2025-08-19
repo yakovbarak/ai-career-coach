@@ -15,6 +15,17 @@
             </a>
           </p>
           <p v-if="currentJob.notes" class="text-sm mt-1">Notes: {{ currentJob.notes }}</p>
+          <p v-if="currentJob.jobDescription" class="text-sm mt-1 whitespace-pre-wrap">
+            {{ currentJob.jobDescription }}
+          </p>
+          <div v-if="currentJob.recruiter && (currentJob.recruiter.name || currentJob.recruiter.email || currentJob.recruiter.phone)"
+              class="text-sm mt-1">
+            <span class="font-semibold">Recruiter:</span>
+            <span v-if="currentJob.recruiter.name"> {{ currentJob.recruiter.name }}</span>
+            <span v-if="currentJob.recruiter.email"> · {{ currentJob.recruiter.email }}</span>
+            <span v-if="currentJob.recruiter.phone"> · {{ currentJob.recruiter.phone }}</span>
+          </div>
+
         </div>
 
         <!-- Edit Mode -->
@@ -29,7 +40,13 @@
           </select>
           <input v-model="editUrl" placeholder="Job URL" class="input" />
           <textarea v-model="editNotes" placeholder="Notes" class="input"></textarea>
+          <textarea v-model="editJobDescription" placeholder="Job description" class="input"></textarea>
 
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <input v-model="editRecruiterName"  placeholder="Recruiter name"  class="input" />
+            <input v-model="editRecruiterEmail" placeholder="Recruiter email" class="input" />
+            <input v-model="editRecruiterPhone" placeholder="Recruiter phone" class="input" />
+          </div>
           <div class="flex gap-2 pt-1">
             <button @click="save" class="bg-green-600 text-white px-3 py-1 rounded">
               Save
@@ -75,6 +92,10 @@ const editPosition = ref(currentJob.value.position);
 const editStatus = ref<JobApplication['status']>(currentJob.value.status);
 const editNotes = ref(currentJob.value.notes ?? '');
 const editUrl = ref(currentJob.value.url ?? '');
+const editJobDescription = ref(currentJob.value.jobDescription ?? '');
+const editRecruiterName = ref(currentJob.value.recruiter?.name ?? '');
+const editRecruiterEmail = ref(currentJob.value.recruiter?.email ?? '');
+const editRecruiterPhone = ref(currentJob.value.recruiter?.phone ?? '');
 
 function startEdit() {
   editing.value = true;
@@ -84,6 +105,10 @@ function startEdit() {
   editStatus.value = currentJob.value.status;
   editNotes.value = currentJob.value.notes ?? '';
   editUrl.value = currentJob.value.url ?? '';
+  editJobDescription.value = currentJob.value.jobDescription ?? '';
+  editRecruiterName.value = currentJob.value.recruiter?.name ?? '';
+  editRecruiterEmail.value = currentJob.value.recruiter?.email ?? '';
+  editRecruiterPhone.value = currentJob.value.recruiter?.phone ?? '';
 }
 
 function cancelEdit() {
@@ -94,6 +119,10 @@ function cancelEdit() {
   editStatus.value = currentJob.value.status;
   editNotes.value = currentJob.value.notes ?? '';
   editUrl.value = currentJob.value.url ?? '';
+  editJobDescription.value = currentJob.value.jobDescription ?? '';
+  editRecruiterName.value = currentJob.value.recruiter?.name ?? '';
+  editRecruiterEmail.value = currentJob.value.recruiter?.email ?? '';
+  editRecruiterPhone.value = currentJob.value.recruiter?.phone ?? '';
 }
 
 function save() {
@@ -103,6 +132,12 @@ function save() {
     status: editStatus.value,
     notes: editNotes.value || undefined,
     url: editUrl.value.trim() || undefined,
+    jobDescription: editJobDescription.value || undefined,
+    recruiter: {
+      name:  editRecruiterName.value  || undefined,
+      email: editRecruiterEmail.value || undefined,
+      phone: editRecruiterPhone.value || undefined,
+    },
   });
   editing.value = false;
 }

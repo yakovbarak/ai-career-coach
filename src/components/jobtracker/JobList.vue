@@ -1,8 +1,7 @@
 <template>
   <div class="space-y-4">
-    <!-- Legend + Filters -->
-    <div class="flex items-center justify-between">
-      <!-- Legend -->
+    <!-- Legend -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex gap-4 text-sm">
         <span class="flex items-center gap-1">
           <span class="w-4 h-4 bg-red-300 border rounded"></span> Rejected
@@ -12,8 +11,8 @@
         </span>
       </div>
 
-      <!-- Filters -->
-      <div class="flex gap-4 items-center">
+      <!-- Filters & Sort -->
+      <div class="flex flex-wrap gap-3 items-center">
         <label>
           Status:
           <select v-model="selectedStatus" class="border rounded p-1">
@@ -26,17 +25,54 @@
         </label>
 
         <label>
-          Sort:
-          <select v-model="sortOrder" class="border rounded p-1">
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
+          Company:
+          <select v-model="selectedCompany" class="border rounded p-1">
+            <option :value="ALL_COMPANIES">All</option>
+            <option
+              v-for="c in companies"
+              :key="c"
+              :value="c"
+            >
+              {{ c }}
+            </option>
           </select>
         </label>
+
+        <label>
+          Sort by:
+          <select v-model="sortKey" class="border rounded p-1">
+            <option value="date">Date</option>
+            <option value="company">Company</option>
+            <option value="position">Position</option>
+          </select>
+        </label>
+
+        <label>
+          Direction:
+          <select v-model="sortDir" class="border rounded p-1">
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+          </select>
+        </label>
+        <!-- Reset Filters -->
+        <button
+          class="border rounded px-3 py-1 disabled:opacity-50"
+          :disabled="isDefaultFilters"
+          @click="resetFilters"
+          title="Reset to Status: All, Company: All, Sort: Date/Desc"
+        >
+          Reset filters
+        </button>
       </div>
     </div>
 
+    <!-- Global duplicate banner (unchanged behavior) -->
+    <div v-if="hasDuplicates" class="bg-yellow-300 text-black p-3 rounded">
+      ⚠️ Duplicate job URLs detected! Please review highlighted rows.
+    </div>
+
     <!-- Job list -->
-    <div v-if="filteredAndSortedJobs.length > 0" class="space-y-2">
+    <div v-if="filteredAndSortedJobs.length" class="space-y-2">
       <JobItem
         v-for="job in filteredAndSortedJobs"
         :key="job.id"
@@ -55,34 +91,99 @@ import type { JobApplication } from '../../types/job';
 
 const jobStore = useJobStore();
 
-// --- Filter & sort state ---
-const selectedStatus = ref<'All' | 'Applied' | 'Interview' | 'Offer' | 'Rejected'>('All');
-const sortOrder = ref<'newest' | 'oldest'>('newest');
+// --- constants ---
+const ALL_COMPANIES = '__ALL__' as const;
 
-// --- Compute duplicate URLs ---
+// --- state for controls ---
+const selectedStatus = ref<'All' | JobApplication['status']>('All');
+const selectedCompany = ref<string>(ALL_COMPANIES);
+const sortKey = ref<'date' | 'company' | 'position'>('date');
+const sortDir = ref<'asc' | 'desc'>('desc');
+
+
+// defaults for quick reuse
+const DEFAULTS = {
+  status: 'All' as 'All' | JobApplication['status'],
+  company: ALL_COMPANIES as string,
+  sortKey: 'date' as 'date' | 'company' | 'position',
+  sortDir: 'desc' as 'asc' | 'desc',
+};
+
+// Are filters already at defaults?
+const isDefaultFilters = computed(() =>
+  selectedStatus.value === DEFAULTS.status &&
+  selectedCompany.value === DEFAULTS.company &&
+  sortKey.value === DEFAULTS.sortKey &&
+  sortDir.value === DEFAULTS.sortDir
+);
+
+// Reset handler
+function resetFilters() {
+  selectedStatus.value = DEFAULTS.status;
+  selectedCompany.value = DEFAULTS.company;
+  sortKey.value = DEFAULTS.sortKey;
+  sortDir.value = DEFAULTS.sortDir;
+}
+
+// --- duplicate detection (unchanged logic) ---
 const normalizeUrl = (u?: string) => (u ?? '').trim();
-const duplicateUrls = computed(() => {
-  const urlCounts: Record<string, number> = {};
-  jobStore.jobs.forEach(j => {
-    if (j.url) urlCounts[j.url] = (urlCounts[j.url] || 0) + 1;
-  });
-  return Object.keys(urlCounts).filter(url => urlCounts[url] > 1);
+const hasDuplicates = computed(() => {
+  const counts: Record<string, number> = {};
+  for (const j of jobStore.jobs) {
+    if (!j.url) continue;
+    const key = normalizeUrl(j.url);
+    if (!key) continue;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return Object.values(counts).some((n) => n > 1);
 });
 
-// --- Filter + sort jobs ---
-const filteredAndSortedJobs = computed(() => {
-  let result: JobApplication[] = [...jobStore.jobs];
+// --- companies list for dropdown (unique, sorted) ---
+const companies = computed<string[]>(() => {
+  const set = new Set<string>();
+  for (const j of jobStore.jobs) {
+    const c = (j.company ?? '').trim();
+    if (c) set.add(c);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+});
 
-  // Filter by status
+// --- main computed: filter + sort ---
+const filteredAndSortedJobs = computed<JobApplication[]>(() => {
+  // defensive copy
+  let result = jobStore.jobs.slice();
+
+  // status filter
   if (selectedStatus.value !== 'All') {
-    result = result.filter(job => job.status === selectedStatus.value);
+    result = result.filter((j) => j.status === selectedStatus.value);
   }
 
-  // Sort by createdAt (fallback to dateApplied if missing)
+  // company filter
+  if (selectedCompany.value !== ALL_COMPANIES) {
+    const target = (selectedCompany.value ?? '').trim();
+    result = result.filter((j) => (j.company ?? '').trim() === target);
+  }
+
+  // sorting
   result.sort((a, b) => {
-    const aTime = a.createdAt ?? new Date(a.dateApplied).getTime();
-    const bTime = b.createdAt ?? new Date(b.dateApplied).getTime();
-    return sortOrder.value === 'newest' ? bTime - aTime : aTime - bTime;
+    let cmp = 0;
+    if (sortKey.value === 'date') {
+      // prefer createdAt; fallback to parsed dateApplied; final fallback = 0
+      const aTime =
+        typeof a.createdAt === 'number'
+          ? a.createdAt
+          : (Number.isFinite(Date.parse(a.dateApplied)) ? new Date(a.dateApplied).getTime() : 0);
+      const bTime =
+        typeof b.createdAt === 'number'
+          ? b.createdAt
+          : (Number.isFinite(Date.parse(b.dateApplied)) ? new Date(b.dateApplied).getTime() : 0);
+      cmp = aTime - bTime;
+    } else if (sortKey.value === 'company') {
+      cmp = (a.company ?? '').localeCompare(b.company ?? '');
+    } else {
+      cmp = (a.position ?? '').localeCompare(b.position ?? '');
+    }
+    return sortDir.value === 'asc' ? cmp : -cmp;
   });
 
   return result;
