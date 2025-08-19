@@ -49,7 +49,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useJobStore } from '../../store/jobStore';
+import { useJobStore } from '../../store/JobStore';
 import JobItem from './JobItem.vue';
 import type { JobApplication } from '../../types/job';
 
