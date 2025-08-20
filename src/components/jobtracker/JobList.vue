@@ -63,6 +63,16 @@
         >
           Reset filters
         </button>
+        <!-- Export -->
+        <button class="border rounded px-3 py-1" @click="handleExport">
+          Export JSON
+        </button>
+
+        <!-- Import (replaces all) -->
+        <label class="border rounded px-3 py-1 cursor-pointer" title="This will replace all current jobs">
+          Import JSON (replaces all)
+          <input type="file" accept="application/json" class="hidden" @change="handleImport" />
+        </label>
       </div>
     </div>
 
@@ -100,6 +110,54 @@ const selectedCompany = ref<string>(ALL_COMPANIES);
 const sortKey = ref<'date' | 'company' | 'position'>('date');
 const sortDir = ref<'asc' | 'desc'>('desc');
 
+
+function download(filename: string, text: string) {
+  const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function handleExport() {
+  const json = jobStore.exportToJson();
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  download(`jobtracker-export-${stamp}.json`, json);
+}
+
+function handleImport(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  // ⚠️ Confirm destructive replace
+  const ok = confirm(
+    'Importing will DELETE ALL current jobs and replace them with the file contents. Continue?'
+  );
+  if (!ok) {
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const text = String(reader.result || '');
+      await jobStore.importFromRaw(text);
+      input.value = ''; // allow re-import of same file later
+      alert('Import completed successfully.');
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert('Import failed. Make sure this is a valid JSON export from this app.');
+      input.value = '';
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
 
 // defaults for quick reuse
 const DEFAULTS = {
