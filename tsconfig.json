@@ -1,7 +1,27 @@
 {
   "files": [],
   "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+    { "path": "./tsconfig.app.json" }
+  ],
+  "compilerOptions": {
+    "types": ["vitest/globals"],
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ESNext",
+    "strict": true,
+    "jsx": "preserve",
+    "allowJs": false,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "src",
+    "tests",
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ],
+  "exclude": ["eslint.config.ts"]
+  
 }
